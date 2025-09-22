@@ -3,8 +3,8 @@ package com.example.weather.service;
 import com.example.weather.dto.WeatherApiResponse;
 import com.example.weather.entity.WeatherEntity;
 import com.example.weather.repository.WeatherRepository;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -13,9 +13,9 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
+@RequiredArgsConstructor
+@Slf4j
 public class WeatherService {
-    private static final Logger logger = LoggerFactory.getLogger(WeatherService.class);
-
     private final WeatherRepository weatherRepository;
     private final WebClient webClient;
 
@@ -34,10 +34,6 @@ public class WeatherService {
     @Value("${weather.city}")
     private String defaultCity;
 
-    public WeatherService(WeatherRepository weatherRepository, WebClient weatherWebClient) {
-        this.weatherRepository = weatherRepository;
-        this.webClient = weatherWebClient;
-    }
 
     private WeatherApiResponse fetchWeatherFromApi(String city) {
         return webClient
@@ -84,7 +80,7 @@ public class WeatherService {
 
     public WeatherEntity fetchAndSaveWeatherForCity(String city) {
         try {
-            logger.info("Fetching weather data for city: {}", city);
+            log.info("Fetching weather data for city: {}", city);
 
             WeatherApiResponse weatherResponse = fetchWeatherFromApi(city);
             validateWeatherResponse(weatherResponse);
@@ -92,11 +88,11 @@ public class WeatherService {
             WeatherEntity weatherEntity = createWeatherEntity(weatherResponse);
             WeatherEntity saved = weatherRepository.save(weatherEntity);
 
-            logger.info("Weather data saved: {} - {}°C", saved.getCity(), saved.getTemperature());
+            log.info("Weather data saved: {} - {}°C", saved.getCity(), saved.getTemperature());
             return saved;
 
         } catch (Exception e) {
-            logger.error("Error fetching weather data for city: {}", city, e);
+            log.error("Error fetching weather data for city: {}", city, e);
             throw new RuntimeException("Failed to fetch weather data: " + e.getMessage(), e);
         }
     }
