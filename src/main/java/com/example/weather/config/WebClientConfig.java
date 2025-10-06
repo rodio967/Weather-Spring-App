@@ -10,12 +10,13 @@ public class WebClientConfig {
     @Value("${weather.api.url}")
     private String baseUrl;
 
+    private static final int byteCount = 1024 * 1024;
 
     @Bean
     public WebClient weatherWebClient() {
         return WebClient.builder()
                 .baseUrl(baseUrl)
-                .codecs(configurer -> configurer.defaultCodecs().maxInMemorySize(1024 * 1024))
+                .codecs(configurer -> configurer.defaultCodecs().maxInMemorySize(byteCount))
                 .build();
     }
 }

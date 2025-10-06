@@ -1,38 +1,22 @@
 package com.example.weather.service;
 
-import com.example.weather.dto.WeatherApiResponse;
-import com.example.weather.entity.WeatherEntity;
+import com.example.weather.repository.WeatherEntity;
 import com.example.weather.repository.WeatherRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
-import reactor.core.publisher.Mono;
 import java.time.LocalDateTime;
 import java.util.List;
 
+
+@Slf4j
 @Service
 @RequiredArgsConstructor
-@Slf4j
 public class WeatherService {
+    private final WeatherApiProperties weatherApiProperties;
     private final WeatherRepository weatherRepository;
     private final WebClient webClient;
-
-    @Value("${weather.api.key}")
-    private String apiKey;
-
-    @Value("${weather.api.url}")
-    private String apiUrl;
-
-    @Value("${weather.api.units}")
-    private String units;
-
-    @Value("${weather.api.lang}")
-    private String lang;
-
-    @Value("${weather.city}")
-    private String defaultCity;
 
 
     private WeatherApiResponse fetchWeatherFromApi(String city) {
@@ -41,33 +25,35 @@ public class WeatherService {
                 .uri(uriBuilder -> uriBuilder
                         .path("/weather")
                         .queryParam("q", city)
-                        .queryParam("appid", apiKey)
-                        .queryParam("units", units)
-                        .queryParam("lang", lang)
+                        .queryParam("appid", weatherApiProperties.getKey())
+                        .queryParam("units", weatherApiProperties.getUnits())
+                        .queryParam("lang", weatherApiProperties.getLang())
                         .build())
                 .retrieve()
                 .bodyToMono(WeatherApiResponse.class)
                 .block();
     }
 
-    private void validateWeatherResponse(WeatherApiResponse weatherResponse) {
+    private WeatherApiResponse validateWeatherResponse(WeatherApiResponse weatherResponse) {
         if (weatherResponse == null) {
             throw new RuntimeException("Weather response is null");
         }
 
-        if (weatherResponse.getMain() == null) {
+        if (weatherResponse.main() == null) {
             throw new RuntimeException("Main weather data is missing");
         }
+
+        return weatherResponse;
     }
 
     private WeatherEntity createWeatherEntity(WeatherApiResponse weatherResponse) {
-        Double temperature = weatherResponse.getMain().getTemp();
-        String description = weatherResponse.getWeather() != null && !weatherResponse.getWeather().isEmpty()
-                ? weatherResponse.getWeather().get(0).getDescription()
+        Double temperature = weatherResponse.main().temp();
+        String description = weatherResponse.weather() != null && !weatherResponse.weather().isEmpty()
+                ? weatherResponse.weather().get(0).description()
                 : "No description";
 
         return new WeatherEntity(
-                weatherResponse.getName(),
+                weatherResponse.name(),
                 temperature,
                 LocalDateTime.now(),
                 description
@@ -75,26 +61,20 @@ public class WeatherService {
     }
 
     public WeatherEntity fetchAndSaveWeather() {
-        return fetchAndSaveWeatherForCity(defaultCity);
+        return fetchAndSaveWeatherForCity(weatherApiProperties.getCity());
     }
 
     public WeatherEntity fetchAndSaveWeatherForCity(String city) {
-        try {
-            log.info("Fetching weather data for city: {}", city);
+        log.info("Fetching weather data for city: {}", city);
 
-            WeatherApiResponse weatherResponse = fetchWeatherFromApi(city);
-            validateWeatherResponse(weatherResponse);
+        WeatherApiResponse weatherResponse = validateWeatherResponse(fetchWeatherFromApi(city));
+        WeatherEntity weatherEntity = createWeatherEntity(weatherResponse);
 
-            WeatherEntity weatherEntity = createWeatherEntity(weatherResponse);
-            WeatherEntity saved = weatherRepository.save(weatherEntity);
+        Long id = weatherRepository.insert(weatherEntity);
+        weatherEntity.setId(id);
 
-            log.info("Weather data saved: {} - {}°C", saved.getCity(), saved.getTemperature());
-            return saved;
-
-        } catch (Exception e) {
-            log.error("Error fetching weather data for city: {}", city, e);
-            throw new RuntimeException("Failed to fetch weather data: " + e.getMessage(), e);
-        }
+        log.info("Weather data saved: {} - {}°C", weatherEntity.getCity(), weatherEntity.getTemperature());
+        return weatherEntity;
     }
 
     public List<WeatherEntity> getAllWeatherRecords() {

@@ -1,16 +1,23 @@
 package com.example.weather.repository;
 
-import com.example.weather.entity.WeatherEntity;
-import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Query;
-import org.springframework.stereotype.Repository;
+import org.jdbi.v3.sqlobject.config.RegisterBeanMapper;
+import org.jdbi.v3.sqlobject.customizer.Bind;
+import org.jdbi.v3.sqlobject.customizer.BindBean;
+import org.jdbi.v3.sqlobject.statement.GetGeneratedKeys;
+import org.jdbi.v3.sqlobject.statement.SqlQuery;
+import org.jdbi.v3.sqlobject.statement.SqlUpdate;
 import java.util.List;
 
-@Repository
-public interface WeatherRepository extends JpaRepository<WeatherEntity, Long> {
-    @Query("SELECT w FROM WeatherEntity w ORDER BY w.timestamp DESC")
+@RegisterBeanMapper(WeatherEntity.class)
+public interface WeatherRepository {
+    @SqlUpdate("INSERT INTO weather_records (city, temperature, timestamp, description) " +
+            "VALUES (:city, :temperature, :timestamp, :description)")
+    @GetGeneratedKeys
+    Long insert(@BindBean WeatherEntity weatherEntity);
+
+    @SqlQuery("SELECT * FROM weather_records ORDER BY timestamp DESC")
     List<WeatherEntity> findAllOrderByTimestampDesc();
 
-    @Query("SELECT w FROM WeatherEntity w WHERE w.city = ?1 ORDER BY w.timestamp DESC")
-    List<WeatherEntity> findByCityOrderByTimestampDesc(String city);
+    @SqlQuery("SELECT * FROM weather_records WHERE city = :city ORDER BY timestamp DESC")
+    List<WeatherEntity> findByCityOrderByTimestampDesc(@Bind("city") String city);
 }
